@@ -7,9 +7,6 @@ services:
       - "8085:8085"
     depends_on:
       - mongodb
-    environment:
-      - GIN_MODE=release
-      - MONGO_URI=mongodb://mongodb:27017/walletdb # MongoDB connection string
     networks:
       - app-network
 
