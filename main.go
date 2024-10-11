@@ -4,6 +4,7 @@ import (
 	"crypto-wallet-app/internal/config"
 	"crypto-wallet-app/internal/db"
 	"crypto-wallet-app/internal/handlers"
+	"crypto-wallet-app/internal/kms"
 	"crypto-wallet-app/internal/utils"
 	"crypto-wallet-app/internal/web3"
 	"log"
@@ -24,12 +25,18 @@ func main() {
 	// Initialize web3 connection
 	web3Client, err := web3.Connect()
 
+	// Initialize KMS client
+	kmsClient, err := kms.NewKMSClient()
+	if err != nil {
+		log.Fatalf("Failed to create KMS client: %v", err)
+	}
+
 	// Set up the router
 	router := gin.Default()
 	router.Use(utils.CORSMiddleware())
 
 	// Setup routes with the handler
-	handlers.RegisterRoutes(router, dbClient, web3Client)
+	handlers.RegisterRoutes(router, dbClient, web3Client, kmsClient)
 
 	// Start the server
 	if err := router.Run(":8085"); err != nil {

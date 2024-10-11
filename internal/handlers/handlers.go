@@ -3,25 +3,26 @@ package handlers
 import (
 	"crypto-wallet-app/internal/models"
 	"crypto-wallet-app/internal/services"
+	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func RegisterRoutes(router *gin.Engine, dbClient *mongo.Client, web3Client *ethclient.Client) {
-	router.POST("/api/wallet", CreateWallet(dbClient, web3Client))
+func RegisterRoutes(router *gin.Engine, dbClient *mongo.Client, web3Client *ethclient.Client, kmsClient *kms.Client) {
+	router.POST("/api/wallet", CreateWallet(dbClient, web3Client, kmsClient))
 	router.GET("/api/wallets", ListWallets(dbClient, web3Client))
-	router.GET("/api/wallet/:address", GetWallet(dbClient, web3Client))
-	router.POST("/api/sign-transaction", SignAndSendTransaction(dbClient, web3Client))
+	router.GET("/api/wallet/:address", GetWallet(dbClient, web3Client, kmsClient))
+	router.POST("/api/sign-transaction", SignAndSendTransaction(dbClient, web3Client, kmsClient))
 }
 
-// CreateWallet creates a new wallet and stores it in the database
-func CreateWallet(dbClient *mongo.Client, web3Client *ethclient.Client) gin.HandlerFunc {
+// creates a new wallet and stores it in the database
+func CreateWallet(dbClient *mongo.Client, web3Client *ethclient.Client, kmsClient *kms.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		var jsonData map[string]string
@@ -40,9 +41,9 @@ func CreateWallet(dbClient *mongo.Client, web3Client *ethclient.Client) gin.Hand
 		var wallet models.Wallet
 		var err error
 
-		wallet, err = services.CreateWallet(dbClient, web3Client, walletName)
+		wallet, err = services.CreateWallet(dbClient, web3Client, kmsClient, walletName)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create wallet"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err})
 			return
 		}
 
@@ -50,8 +51,8 @@ func CreateWallet(dbClient *mongo.Client, web3Client *ethclient.Client) gin.Hand
 	}
 }
 
-// GetWallet retrieves a wallet by its address
-func GetWallet(dbClient *mongo.Client, web3Client *ethclient.Client) gin.HandlerFunc {
+// retrieves a wallet by its address
+func GetWallet(dbClient *mongo.Client, web3Client *ethclient.Client, kmsClient *kms.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		walletAddress := c.Param("address")
 
@@ -66,7 +67,7 @@ func GetWallet(dbClient *mongo.Client, web3Client *ethclient.Client) gin.Handler
 			return
 		}
 
-		wallet, err := services.GetWallet(dbClient, web3Client, walletAddress)
+		wallet, err := services.GetWallet(dbClient, web3Client, kmsClient, walletAddress)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Wallet not found"})
 			return
@@ -76,7 +77,7 @@ func GetWallet(dbClient *mongo.Client, web3Client *ethclient.Client) gin.Handler
 	}
 }
 
-// ListWallets lists all wallets
+// lists all wallets
 func ListWallets(dbClient *mongo.Client, web3Client *ethclient.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wallets, err := services.ListWallets(dbClient, web3Client)
@@ -89,8 +90,8 @@ func ListWallets(dbClient *mongo.Client, web3Client *ethclient.Client) gin.Handl
 	}
 }
 
-// SignAndSendTransaction signs and sends a transaction
-func SignAndSendTransaction(dbClient *mongo.Client, web3Client *ethclient.Client) gin.HandlerFunc {
+// signs and sends a transaction
+func SignAndSendTransaction(dbClient *mongo.Client, web3Client *ethclient.Client, kmsClient *kms.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var transaction models.TransactionRequest
 		var result models.TransactionResult
@@ -108,17 +109,13 @@ func SignAndSendTransaction(dbClient *mongo.Client, web3Client *ethclient.Client
 
 		fromAddress := common.HexToAddress(transaction.FromAddress)
 		toAddress := common.HexToAddress(transaction.ToAddress)
+		kmsKeyID := transaction.KMSKeyID
+		value := transaction.Value
 
-		// Parse private key
-		privateKey, err := crypto.HexToECDSA(transaction.PrivateKey)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid private key"})
-			return
-		}
-
-		result, err = services.SignAndSendTransaction(dbClient, web3Client, fromAddress, toAddress, privateKey)
+		result, err := services.SignAndSendTransaction(dbClient, web3Client, kmsClient, fromAddress, toAddress, kmsKeyID, value)
 
 		if err != nil {
+			fmt.Println(err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to sign and send transaction"})
 			return
 		}
