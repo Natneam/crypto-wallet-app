@@ -11,8 +11,16 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func SaveTransaction(ctx context.Context, dbClient *mongo.Client, newTransaction *models.TransactionResult) (models.TransactionResult, error) {
-	collection := dbClient.Database("walletdb").Collection("transactions")
+type Repository struct {
+	dbClient *mongo.Client
+}
+
+func NewRepository(dbClient *mongo.Client) *Repository {
+	return &Repository{dbClient: dbClient}
+}
+
+func (r *Repository) SaveTransaction(ctx context.Context, newTransaction *models.TransactionResult) (models.TransactionResult, error) {
+	collection := r.dbClient.Database("walletdb").Collection("transactions")
 	insertCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -24,8 +32,8 @@ func SaveTransaction(ctx context.Context, dbClient *mongo.Client, newTransaction
 	return *newTransaction, nil
 }
 
-func SaveWallet(ctx context.Context, dbClient *mongo.Client, newWallet *models.Wallet) (models.Wallet, error) {
-	collection := dbClient.Database("walletdb").Collection("wallets")
+func (r *Repository) SaveWallet(ctx context.Context, newWallet *models.Wallet) (models.Wallet, error) {
+	collection := r.dbClient.Database("walletdb").Collection("wallets")
 	insertCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -37,8 +45,8 @@ func SaveWallet(ctx context.Context, dbClient *mongo.Client, newWallet *models.W
 	return *newWallet, nil
 }
 
-func GetWallet(ctx context.Context, dbClient *mongo.Client, address string) (models.Wallet, error) {
-	collection := dbClient.Database("walletdb").Collection("wallets")
+func (r *Repository) GetWallet(ctx context.Context, address string) (models.Wallet, error) {
+	collection := r.dbClient.Database("walletdb").Collection("wallets")
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -50,8 +58,8 @@ func GetWallet(ctx context.Context, dbClient *mongo.Client, address string) (mod
 	return wallet, nil
 }
 
-func ListWallets(ctx context.Context, dbClient *mongo.Client) ([]models.Wallet, error) {
-	collection := dbClient.Database("walletdb").Collection("wallets")
+func (r *Repository) ListWallets(ctx context.Context) ([]models.Wallet, error) {
+	collection := r.dbClient.Database("walletdb").Collection("wallets")
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 

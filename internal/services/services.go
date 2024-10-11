@@ -19,10 +19,23 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	ethawskmssigner "github.com/welthee/go-ethereum-aws-kms-tx-signer/v2"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func CreateWallet(dbClient *mongo.Client, web3Client *ethclient.Client, kmsClient *kms.Client, walletName string) (models.Wallet, error) {
+type Service struct {
+	repo       *repositories.Repository
+	web3Client *ethclient.Client
+	kmsClient  *kms.Client
+}
+
+func NewService(repo *repositories.Repository, web3Client *ethclient.Client, kmsClient *kms.Client) *Service {
+	return &Service{
+		repo:       repo,
+		web3Client: web3Client,
+		kmsClient:  kmsClient,
+	}
+}
+
+func (s *Service) CreateWallet(walletName string) (models.Wallet, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	var newWallet models.Wallet
 
@@ -33,7 +46,7 @@ func CreateWallet(dbClient *mongo.Client, web3Client *ethclient.Client, kmsClien
 		KeySpec:     kmsTypes.KeySpecEccSecgP256k1, // Ethereum uses secp256k1 curve
 	}
 
-	createKeyOutput, err := kmsClient.CreateKey(ctx, createKeyInput)
+	createKeyOutput, err := s.kmsClient.CreateKey(ctx, createKeyInput)
 	if err != nil {
 		return newWallet, fmt.Errorf("failed to create KMS key: %v", err)
 	}
@@ -43,7 +56,7 @@ func CreateWallet(dbClient *mongo.Client, web3Client *ethclient.Client, kmsClien
 		KeyId: createKeyOutput.KeyMetadata.KeyId,
 	}
 
-	getPublicKeyOutput, err := kmsClient.GetPublicKey(ctx, getPublicKeyInput)
+	getPublicKeyOutput, err := s.kmsClient.GetPublicKey(ctx, getPublicKeyInput)
 	if err != nil {
 		return newWallet, fmt.Errorf("failed to get public key: %v", err)
 	}
@@ -77,7 +90,7 @@ func CreateWallet(dbClient *mongo.Client, web3Client *ethclient.Client, kmsClien
 	publicKeyHex := address.Hex()
 
 	// Check the balance on Sepolia
-	balance, err := web3Client.BalanceAt(ctx, address, nil)
+	balance, err := s.web3Client.BalanceAt(ctx, address, nil)
 	if err != nil {
 		return newWallet, fmt.Errorf("failed to get balance: %v", err)
 	}
@@ -90,17 +103,17 @@ func CreateWallet(dbClient *mongo.Client, web3Client *ethclient.Client, kmsClien
 	}
 
 	// Save the wallet to the database
-	newWallet, err = repositories.SaveWallet(ctx, dbClient, &newWallet)
+	newWallet, err = s.repo.SaveWallet(ctx, &newWallet)
 	if err != nil {
 		return newWallet, fmt.Errorf("failed to save wallet: %v", err)
 	}
 	return newWallet, nil
 }
 
-func ListWallets(dbClient *mongo.Client, web3Client *ethclient.Client) ([]models.Wallet, error) {
+func (s *Service) ListWallets() ([]models.Wallet, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 
-	wallets, err := repositories.ListWallets(ctx, dbClient)
+	wallets, err := s.repo.ListWallets(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +124,7 @@ func ListWallets(dbClient *mongo.Client, web3Client *ethclient.Client) ([]models
 		address := common.HexToAddress(wallet.PublicKey)
 
 		// Fetch balance from Sepolia
-		balance, err := web3Client.BalanceAt(context.Background(), address, nil)
+		balance, err := s.web3Client.BalanceAt(context.Background(), address, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -123,9 +136,9 @@ func ListWallets(dbClient *mongo.Client, web3Client *ethclient.Client) ([]models
 	return wallets, nil
 }
 
-func GetWallet(dbClient *mongo.Client, web3Client *ethclient.Client, kmsClient *kms.Client, address string) (*models.Wallet, error) {
+func (s *Service) GetWallet(address string) (*models.Wallet, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	wallet, err := repositories.GetWallet(ctx, dbClient, address)
+	wallet, err := s.repo.GetWallet(ctx, address)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +147,7 @@ func GetWallet(dbClient *mongo.Client, web3Client *ethclient.Client, kmsClient *
 	account := common.HexToAddress(address)
 
 	// Get the balance of the wallet
-	balance, err := web3Client.BalanceAt(ctx, account, nil)
+	balance, err := s.web3Client.BalanceAt(ctx, account, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -144,36 +157,36 @@ func GetWallet(dbClient *mongo.Client, web3Client *ethclient.Client, kmsClient *
 	return &wallet, nil
 }
 
-func SignAndSendTransaction(dbClient *mongo.Client, web3Client *ethclient.Client, kmsClient *kms.Client, fromAddress common.Address, toAddress common.Address, kmsKeyID string, value string) (models.TransactionResult, error) {
+func (s *Service) SignAndSendTransaction(fromAddress common.Address, toAddress common.Address, kmsKeyID string, value string) (models.TransactionResult, error) {
 
 	ctx, _ := context.WithTimeout(context.Background(), 60*time.Second)
 
 	// Get the chain ID
-	chainID, err := web3Client.NetworkID(ctx)
+	chainID, err := s.web3Client.NetworkID(ctx)
 	if err != nil {
 		return models.TransactionResult{}, err
 	}
 
 	// Create AWS KMS transactor
-	transactOpts, err := ethawskmssigner.NewAwsKmsTransactorWithChainIDCtx(ctx, kmsClient, kmsKeyID, chainID)
+	transactOpts, err := ethawskmssigner.NewAwsKmsTransactorWithChainIDCtx(ctx, s.kmsClient, kmsKeyID, chainID)
 	if err != nil {
 		return models.TransactionResult{}, err
 	}
 
 	// Get the latest nonce for the fromAddress
-	nonce, err := web3Client.PendingNonceAt(ctx, fromAddress)
+	nonce, err := s.web3Client.PendingNonceAt(ctx, fromAddress)
 	if err != nil {
 		return models.TransactionResult{}, err
 	}
 
 	// Get the current gas price
-	gasPrice, err := web3Client.SuggestGasPrice(ctx)
+	gasPrice, err := s.web3Client.SuggestGasPrice(ctx)
 	if err != nil {
 		return models.TransactionResult{}, err
 	}
 
 	// Estimate gas limit
-	gasLimit, err := web3Client.EstimateGas(ctx, ethereum.CallMsg{
+	gasLimit, err := s.web3Client.EstimateGas(ctx, ethereum.CallMsg{
 		From: fromAddress,
 		To:   &toAddress,
 		Data: nil,
@@ -193,15 +206,29 @@ func SignAndSendTransaction(dbClient *mongo.Client, web3Client *ethclient.Client
 	}
 
 	// Send the transaction
-	err = web3Client.SendTransaction(ctx, signedTx)
+	err = s.web3Client.SendTransaction(ctx, signedTx)
 	if err != nil {
 		return models.TransactionResult{}, err
 	}
 
 	// Wait for the transaction to be mined
-	receipt, err := utils.WaitForTransactionReceipt(ctx, web3Client, signedTx.Hash())
-	if err != nil {
-		return models.TransactionResult{}, err
+	var receipt *ethereumTypes.Receipt
+
+	for {
+		receipt, err = s.web3Client.TransactionReceipt(ctx, signedTx.Hash())
+		if err == nil {
+			break
+		}
+		if err != ethereum.NotFound {
+			return models.TransactionResult{}, err
+		}
+		// Transaction not yet mined, wait and retry
+		select {
+		case <-ctx.Done():
+			return models.TransactionResult{}, ctx.Err()
+		case <-time.After(time.Second * 5):
+			// Continue waiting
+		}
 	}
 
 	// Create the transaction result
@@ -216,7 +243,7 @@ func SignAndSendTransaction(dbClient *mongo.Client, web3Client *ethclient.Client
 	}
 
 	// Save the transaction result to the database
-	savedTrx, err := repositories.SaveTransaction(ctx, dbClient, &result)
+	savedTrx, err := s.repo.SaveTransaction(ctx, &result)
 	if err != nil {
 		return models.TransactionResult{}, err
 	}
