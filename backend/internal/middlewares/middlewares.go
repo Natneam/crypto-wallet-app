@@ -1,9 +1,10 @@
 package middlewares
 
 import (
-	"crypto-wallet-app/internal/services"
 	"net/http"
 	"strings"
+
+	"github.com/natneam/crypto-wallet-app/internal/services"
 
 	"github.com/gin-gonic/gin"
 )

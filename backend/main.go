@@ -2,15 +2,16 @@ package main
 
 import (
 	"context"
-	"crypto-wallet-app/internal/config"
-	"crypto-wallet-app/internal/db"
-	"crypto-wallet-app/internal/handlers"
-	"crypto-wallet-app/internal/kms"
-	"crypto-wallet-app/internal/middlewares"
-	"crypto-wallet-app/internal/repositories"
-	"crypto-wallet-app/internal/services"
-	"crypto-wallet-app/internal/web3"
 	"log"
+
+	"github.com/natneam/crypto-wallet-app/internal/config"
+	"github.com/natneam/crypto-wallet-app/internal/db"
+	"github.com/natneam/crypto-wallet-app/internal/handlers"
+	"github.com/natneam/crypto-wallet-app/internal/kms"
+	"github.com/natneam/crypto-wallet-app/internal/middlewares"
+	"github.com/natneam/crypto-wallet-app/internal/repositories"
+	"github.com/natneam/crypto-wallet-app/internal/services"
+	"github.com/natneam/crypto-wallet-app/internal/web3"
 
 	"github.com/gin-gonic/gin"
 )

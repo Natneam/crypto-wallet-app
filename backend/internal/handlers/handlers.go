@@ -1,12 +1,13 @@
 package handlers
 
 import (
-	"crypto-wallet-app/internal/middlewares"
-	"crypto-wallet-app/internal/models"
-	"crypto-wallet-app/internal/services"
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/natneam/crypto-wallet-app/internal/middlewares"
+	"github.com/natneam/crypto-wallet-app/internal/models"
+	"github.com/natneam/crypto-wallet-app/internal/services"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"

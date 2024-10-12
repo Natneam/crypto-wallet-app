@@ -2,10 +2,11 @@ package repositories
 
 import (
 	"context"
-	"crypto-wallet-app/internal/models"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/natneam/crypto-wallet-app/internal/models"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
