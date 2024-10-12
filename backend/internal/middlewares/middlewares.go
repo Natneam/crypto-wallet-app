@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/natneam/crypto-wallet-app/internal/services"
+	"github.com/natneam/crypto-wallet-app/backend/internal/services"
 
 	"github.com/gin-gonic/gin"
 )

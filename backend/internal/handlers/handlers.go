@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/natneam/crypto-wallet-app/internal/middlewares"
-	"github.com/natneam/crypto-wallet-app/internal/models"
-	"github.com/natneam/crypto-wallet-app/internal/services"
+	"github.com/natneam/crypto-wallet-app/backend/internal/middlewares"
+	"github.com/natneam/crypto-wallet-app/backend/internal/models"
+	"github.com/natneam/crypto-wallet-app/backend/internal/services"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"

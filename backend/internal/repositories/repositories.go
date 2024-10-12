@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/natneam/crypto-wallet-app/internal/models"
+	"github.com/natneam/crypto-wallet-app/backend/internal/models"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"

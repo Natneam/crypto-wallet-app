@@ -8,9 +8,9 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/natneam/crypto-wallet-app/internal/models"
-	"github.com/natneam/crypto-wallet-app/internal/repositories"
-	"github.com/natneam/crypto-wallet-app/internal/utils"
+	"github.com/natneam/crypto-wallet-app/backend/internal/models"
+	"github.com/natneam/crypto-wallet-app/backend/internal/repositories"
+	"github.com/natneam/crypto-wallet-app/backend/internal/utils"
 
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	kmsTypes "github.com/aws/aws-sdk-go-v2/service/kms/types"

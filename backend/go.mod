@@ -1,4 +1,4 @@
-module github.com/natneam/crypto-wallet-app
+module github.com/natneam/crypto-wallet-app/backend
 
 go 1.23
 

@@ -4,14 +4,14 @@ import (
 	"context"
 	"log"
 
-	"github.com/natneam/crypto-wallet-app/internal/config"
-	"github.com/natneam/crypto-wallet-app/internal/db"
-	"github.com/natneam/crypto-wallet-app/internal/handlers"
-	"github.com/natneam/crypto-wallet-app/internal/kms"
-	"github.com/natneam/crypto-wallet-app/internal/middlewares"
-	"github.com/natneam/crypto-wallet-app/internal/repositories"
-	"github.com/natneam/crypto-wallet-app/internal/services"
-	"github.com/natneam/crypto-wallet-app/internal/web3"
+	"github.com/natneam/crypto-wallet-app/backend/internal/config"
+	"github.com/natneam/crypto-wallet-app/backend/internal/db"
+	"github.com/natneam/crypto-wallet-app/backend/internal/handlers"
+	"github.com/natneam/crypto-wallet-app/backend/internal/kms"
+	"github.com/natneam/crypto-wallet-app/backend/internal/middlewares"
+	"github.com/natneam/crypto-wallet-app/backend/internal/repositories"
+	"github.com/natneam/crypto-wallet-app/backend/internal/services"
+	"github.com/natneam/crypto-wallet-app/backend/internal/web3"
 
 	"github.com/gin-gonic/gin"
 )
