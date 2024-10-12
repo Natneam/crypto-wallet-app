@@ -6,6 +6,7 @@ import (
 	"crypto-wallet-app/internal/repositories"
 	"crypto-wallet-app/internal/utils"
 	"encoding/asn1"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -18,13 +19,16 @@ import (
 	ethereumTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/golang-jwt/jwt/v4"
 	ethawskmssigner "github.com/welthee/go-ethereum-aws-kms-tx-signer/v2"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Service struct {
 	repo       *repositories.Repository
 	web3Client *ethclient.Client
 	kmsClient  *kms.Client
+	jwtSecret  []byte
 }
 
 func NewService(repo *repositories.Repository, web3Client *ethclient.Client, kmsClient *kms.Client) *Service {
@@ -35,7 +39,7 @@ func NewService(repo *repositories.Repository, web3Client *ethclient.Client, kms
 	}
 }
 
-func (s *Service) CreateWallet(walletName string) (models.Wallet, error) {
+func (s *Service) CreateWallet(walletName string, userId string) (models.Wallet, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	var newWallet models.Wallet
 
@@ -100,6 +104,7 @@ func (s *Service) CreateWallet(walletName string) (models.Wallet, error) {
 		PublicKey: publicKeyHex,
 		Balance:   balance.String(),
 		KMSKeyID:  *createKeyOutput.KeyMetadata.KeyId,
+		UserID:    userId,
 	}
 
 	// Save the wallet to the database
@@ -110,10 +115,10 @@ func (s *Service) CreateWallet(walletName string) (models.Wallet, error) {
 	return newWallet, nil
 }
 
-func (s *Service) ListWallets() ([]models.Wallet, error) {
+func (s *Service) ListWallets(userId string) ([]models.Wallet, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 
-	wallets, err := s.repo.ListWallets(ctx)
+	wallets, err := s.repo.ListWallets(ctx, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -136,9 +141,9 @@ func (s *Service) ListWallets() ([]models.Wallet, error) {
 	return wallets, nil
 }
 
-func (s *Service) GetWallet(address string) (*models.Wallet, error) {
+func (s *Service) GetWallet(address string, userId string) (*models.Wallet, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	wallet, err := s.repo.GetWallet(ctx, address)
+	wallet, err := s.repo.GetWallet(ctx, address, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -157,9 +162,14 @@ func (s *Service) GetWallet(address string) (*models.Wallet, error) {
 	return &wallet, nil
 }
 
-func (s *Service) SignAndSendTransaction(fromAddress common.Address, toAddress common.Address, kmsKeyID string, value string) (models.TransactionResult, error) {
+func (s *Service) SignAndSendTransaction(fromAddress common.Address, toAddress common.Address, value string, userId string) (models.TransactionResult, error) {
 
 	ctx, _ := context.WithTimeout(context.Background(), 60*time.Second)
+	// Get user's wallet details
+	wallet, err := s.repo.GetWallet(ctx, fromAddress.Hex(), userId)
+	if err != nil {
+		return models.TransactionResult{}, err
+	}
 
 	// Get the chain ID
 	chainID, err := s.web3Client.NetworkID(ctx)
@@ -168,7 +178,7 @@ func (s *Service) SignAndSendTransaction(fromAddress common.Address, toAddress c
 	}
 
 	// Create AWS KMS transactor
-	transactOpts, err := ethawskmssigner.NewAwsKmsTransactorWithChainIDCtx(ctx, s.kmsClient, kmsKeyID, chainID)
+	transactOpts, err := ethawskmssigner.NewAwsKmsTransactorWithChainIDCtx(ctx, s.kmsClient, wallet.KMSKeyID, chainID)
 	if err != nil {
 		return models.TransactionResult{}, err
 	}
@@ -240,6 +250,7 @@ func (s *Service) SignAndSendTransaction(fromAddress common.Address, toAddress c
 		To:              toAddress.Hex(),
 		GasPrice:        gasPrice.String(),
 		Value:           value,
+		UserID:          userId,
 	}
 
 	// Save the transaction result to the database
@@ -249,4 +260,67 @@ func (s *Service) SignAndSendTransaction(fromAddress common.Address, toAddress c
 	}
 
 	return savedTrx, nil
+}
+
+func (s *Service) SignUp(username, email, password string) error {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	user := &models.User{
+		Username:     username,
+		Email:        email,
+		PasswordHash: string(hashedPassword),
+		CreatedAt:    time.Now().Format(time.RFC3339),
+		UpdatedAt:    time.Now().Format(time.RFC3339),
+	}
+
+	return s.repo.CreateUser(user)
+}
+
+func (s *Service) Login(username, password string) (string, error) {
+	user, err := s.repo.GetUserByUsername(username)
+	if err != nil {
+		return "", err
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		return "", errors.New("invalid credentials")
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": user.ID,
+		"exp":     time.Now().Add(time.Hour * 24).Unix(),
+	})
+
+	return token.SignedString(s.jwtSecret)
+}
+
+func (s *Service) ValidateToken(tokenString string) (string, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return s.jwtSecret, nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		userID, ok := claims["user_id"].(string)
+		if !ok {
+			// If user_id is not a string, try to convert it to a string
+			userIDFloat, ok := claims["user_id"].(float64)
+			if !ok {
+				return "", fmt.Errorf("invalid user_id in token")
+			}
+			userID = fmt.Sprintf("%.0f", userIDFloat)
+		}
+		return userID, nil
+	}
+
+	return "", fmt.Errorf("invalid token")
 }

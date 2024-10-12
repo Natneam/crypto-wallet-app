@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"crypto-wallet-app/internal/middlewares"
 	"crypto-wallet-app/internal/models"
 	"crypto-wallet-app/internal/services"
 	"fmt"
@@ -20,10 +21,17 @@ func NewHandler(r *gin.Engine, service *services.Service) {
 		service: service,
 	}
 
-	r.POST("/api/wallet", handler.CreateWallet)
-	r.GET("/api/wallets", handler.ListWallets)
-	r.GET("/api/wallet/:address", handler.GetWallet)
-	r.POST("/api/sign-transaction", handler.SignAndSendTransaction)
+	// Public routes
+	r.POST("/api/signup", handler.SignUp)
+	r.POST("/api/login", handler.Login)
+
+	// Protected routes
+	protected := r.Group("/api")
+	protected.Use(middlewares.AuthMiddleware(service))
+	protected.GET("/wallets", handler.ListWallets)
+	protected.GET("/wallet/:address", handler.GetWallet)
+	protected.POST("/sign-transaction", handler.SignAndSendTransaction)
+	protected.POST("/wallet", handler.CreateWallet)
 }
 
 // creates a new wallet and stores it in the database
@@ -37,6 +45,7 @@ func (h *Handler) CreateWallet(c *gin.Context) {
 	}
 
 	walletName, exists := jsonData["name"]
+	userId, _ := c.Get("user_id")
 	if !exists {
 		c.JSON(400, gin.H{"error": "Missing wallet name"})
 		return
@@ -45,7 +54,7 @@ func (h *Handler) CreateWallet(c *gin.Context) {
 	var wallet models.Wallet
 	var err error
 
-	wallet, err = h.service.CreateWallet(walletName)
+	wallet, err = h.service.CreateWallet(walletName, userId.(string))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
 		return
@@ -57,6 +66,7 @@ func (h *Handler) CreateWallet(c *gin.Context) {
 // retrieves a wallet by its address
 func (h *Handler) GetWallet(c *gin.Context) {
 	walletAddress := c.Param("address")
+	userID, _ := c.Get("user_id")
 
 	// Trim any whitespace and ensure the address starts with "0x"
 	walletAddress = strings.TrimSpace(walletAddress)
@@ -69,7 +79,7 @@ func (h *Handler) GetWallet(c *gin.Context) {
 		return
 	}
 
-	wallet, err := h.service.GetWallet(walletAddress)
+	wallet, err := h.service.GetWallet(walletAddress, userID.(string))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Wallet not found"})
 		return
@@ -80,7 +90,8 @@ func (h *Handler) GetWallet(c *gin.Context) {
 
 // lists all wallets
 func (h *Handler) ListWallets(c *gin.Context) {
-	wallets, err := h.service.ListWallets()
+	userID, _ := c.Get("user_id")
+	wallets, err := h.service.ListWallets(userID.(string))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list wallets"})
 		return
@@ -107,16 +118,57 @@ func (h *Handler) SignAndSendTransaction(c *gin.Context) {
 
 	fromAddress := common.HexToAddress(transaction.FromAddress)
 	toAddress := common.HexToAddress(transaction.ToAddress)
-	kmsKeyID := transaction.KMSKeyID
 	value := transaction.Value
+	userID, _ := c.Get("user_id")
 
-	result, err := h.service.SignAndSendTransaction(fromAddress, toAddress, kmsKeyID, value)
+	result, err := h.service.SignAndSendTransaction(fromAddress, toAddress, value, userID.(string))
 
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to sign and send transaction"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *Handler) SignUp(c *gin.Context) {
+	var input struct {
+		Username string `json:"username" binding:"required"`
+		Email    string `json:"email" binding:"required,email"`
+		Password string `json:"password" binding:"required,min=6"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.service.SignUp(input.Username, input.Email, input.Password); err != nil {
+		fmt.Println(`Error: `, err)
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "User created successfully"})
+}
+
+func (h *Handler) Login(c *gin.Context) {
+	var input struct {
+		Username string `json:"username" binding:"required"`
+		Password string `json:"password" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	token, err := h.service.Login(input.Username, input.Password)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"token": token})
 }

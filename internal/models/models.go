@@ -3,7 +3,6 @@ package models
 type TransactionRequest struct {
 	FromAddress string `json:"fromAddress"`
 	ToAddress   string `json:"toAddress"`
-	KMSKeyID    string `json:"kmsKeyID"`
 	Value       string `json:"value"`
 }
 
@@ -15,7 +14,8 @@ type TransactionResult struct {
 	Value           string `json:"value"`
 	GasUsed         uint64 `json:"gasUsed"`
 	BlockNumber     uint64 `json:"blockNumber"`
-	ID              string `json:"id"`
+	ID              string `json:"id" bson:"_id,omitempty"`
+	UserID          string `json:"user_id"`
 }
 
 // Wallet represents a user wallet.
@@ -25,4 +25,15 @@ type Wallet struct {
 	PublicKey string `json:"public_key"`
 	Balance   string `json:"balance"`
 	KMSKeyID  string `json:"kms_key_id"`
+	UserID    string `json:"user_id"`
+}
+
+// User represents a user account.
+type User struct {
+	ID           string `json:"id,omitempty" bson:"_id,omitempty"`
+	Username     string `json:"username"`
+	Email        string `json:"email"`
+	PasswordHash string `json:"password_hash"`
+	CreatedAt    string `json:"created_at"`
+	UpdatedAt    string `json:"updated_at"`
 }

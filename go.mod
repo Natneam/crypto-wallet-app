@@ -8,9 +8,11 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/kms v1.24.1
 	github.com/ethereum/go-ethereum v1.14.11
 	github.com/gin-gonic/gin v1.10.0
+	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/joho/godotenv v1.5.1
 	github.com/welthee/go-ethereum-aws-kms-tx-signer/v2 v2.0.0-20230802145000-e88ed988d269
 	go.mongodb.org/mongo-driver v1.17.1
+	golang.org/x/crypto v0.26.0
 )
 
 require (
@@ -75,7 +77,6 @@ require (
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	golang.org/x/arch v0.8.0 // indirect
-	golang.org/x/crypto v0.26.0 // indirect
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect
 	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect

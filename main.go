@@ -6,9 +6,9 @@ import (
 	"crypto-wallet-app/internal/db"
 	"crypto-wallet-app/internal/handlers"
 	"crypto-wallet-app/internal/kms"
+	"crypto-wallet-app/internal/middlewares"
 	"crypto-wallet-app/internal/repositories"
 	"crypto-wallet-app/internal/services"
-	"crypto-wallet-app/internal/utils"
 	"crypto-wallet-app/internal/web3"
 	"log"
 
@@ -42,6 +42,12 @@ func NewApplication() (*Application, error) {
 		return nil, err
 	}
 
+	// Initialize database
+	err = db.InitDatabase(dbClient)
+	if err != nil {
+		return nil, err
+	}
+
 	// Initialize repository
 	repository := repositories.NewRepository(dbClient)
 
@@ -50,7 +56,7 @@ func NewApplication() (*Application, error) {
 
 	// Set up the router
 	router := gin.Default()
-	router.Use(utils.CORSMiddleware())
+	router.Use(middlewares.CORSMiddleware())
 
 	// Initialize handlers
 	handlers.NewHandler(router, service)

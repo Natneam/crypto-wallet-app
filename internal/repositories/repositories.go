@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto-wallet-app/internal/models"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -45,25 +46,25 @@ func (r *Repository) SaveWallet(ctx context.Context, newWallet *models.Wallet) (
 	return *newWallet, nil
 }
 
-func (r *Repository) GetWallet(ctx context.Context, address string) (models.Wallet, error) {
+func (r *Repository) GetWallet(ctx context.Context, address string, userId string) (models.Wallet, error) {
 	collection := r.dbClient.Database("walletdb").Collection("wallets")
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var wallet models.Wallet
-	err := collection.FindOne(ctx, bson.M{"publickey": address}).Decode(&wallet)
+	err := collection.FindOne(ctx, bson.M{"publickey": address, "userid": userId}).Decode(&wallet)
 	if err != nil {
 		return wallet, fmt.Errorf("failed to find wallet: %v", err)
 	}
 	return wallet, nil
 }
 
-func (r *Repository) ListWallets(ctx context.Context) ([]models.Wallet, error) {
+func (r *Repository) ListWallets(ctx context.Context, userId string) ([]models.Wallet, error) {
 	collection := r.dbClient.Database("walletdb").Collection("wallets")
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	cursor, err := collection.Find(ctx, bson.M{})
+	cursor, err := collection.Find(ctx, bson.M{"userid": userId})
 	if err != nil {
 		return nil, err
 	}
@@ -75,4 +76,37 @@ func (r *Repository) ListWallets(ctx context.Context) ([]models.Wallet, error) {
 	}
 
 	return wallets, nil
+}
+
+func (r *Repository) CreateUser(user *models.User) error {
+	collection := r.dbClient.Database("walletdb").Collection("users")
+	insertCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := collection.InsertOne(insertCtx, user)
+	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			if strings.Contains(err.Error(), "email") {
+				return fmt.Errorf("email already exists")
+			} else if strings.Contains(err.Error(), "username") {
+				return fmt.Errorf("username already exists")
+			}
+			return fmt.Errorf("duplicate key error")
+		}
+		return fmt.Errorf("failed to insert user into database: %v", err)
+	}
+	return nil
+}
+
+func (r *Repository) GetUserByUsername(username string) (*models.User, error) {
+	collection := r.dbClient.Database("walletdb").Collection("users")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var user models.User
+	err := collection.FindOne(ctx, bson.M{"username": username}).Decode(&user)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find user: %v", err)
+	}
+	return &user, nil
 }
