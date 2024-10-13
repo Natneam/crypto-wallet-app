@@ -1,2 +1,5 @@
 backend/.env
 backend/app
+frontend/node_modules
+frontend/.env
+data/
