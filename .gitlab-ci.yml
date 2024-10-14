@@ -1,0 +1,38 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_HOST: tcp://docker:2375
+  GIN_MODE: $GIN_MODE
+  MONGO_URI: $MONGO_URI
+  SEPOLIA_URL: $SEPOLIA_URL
+  AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+  AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+  AWS_REGION: $AWS_REGION
+  REACT_APP_API_URL: $REACT_APP_API_URL
+
+build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+    - docker build -t $DOCKER_USERNAME/crypto-wallet-app-backend:$CI_COMMIT_SHA ./backend
+    - docker build -t $DOCKER_USERNAME/crypto-wallet-app-frontend:$CI_COMMIT_SHA ./frontend
+    - docker push $DOCKER_USERNAME/crypto-wallet-app-backend:$CI_COMMIT_SHA
+    - docker push $DOCKER_USERNAME/crypto-wallet-app-frontend:$CI_COMMIT_SHA
+
+deploy:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  script:
+    - mkdir -p $HOME/.kube
+    - echo "$KUBE_CONFIG" | base64 -d > $HOME/.kube/config
+    - chmod 400 $HOME/.kube/config
+    - sed -i "s|crypto-wallet-app-backend:latest|$DOCKER_USERNAME/crypto-wallet-app-backend:$CI_COMMIT_SHA|g" k8s/backend-deployment.yaml
+    - sed -i "s|crypto-wallet-app-frontend:latest|$DOCKER_USERNAME/crypto-wallet-app-frontend:$CI_COMMIT_SHA|g" k8s/frontend-deployment.yaml
+    - kubectl apply -f k8s/
+  only:
+    - main
