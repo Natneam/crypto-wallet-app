@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import "./Dashboard.css";
+import WalletItem from "../Wallet/Wallet";
 
 const API_URL = process.env.REACT_APP_API_URL;
 
@@ -96,13 +97,7 @@ export default function Dashboard({ logout }) {
         </div>
         <ul className="wallet-list">
           {wallets?.map((wallet) => (
-            <li key={wallet.public_key} className="wallet-item">
-              <strong>{wallet.name}</strong>
-              <br />
-              Public Key: {wallet.public_key}
-              <br />
-              Balance: {wallet.balance}
-            </li>
+            <WalletItem wallet={wallet} logout={logout} key={wallet.public_key}/>
           ))}
         </ul>
       </div>
