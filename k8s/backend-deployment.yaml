@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: natneam/crypto-wallet-app-backend:latest
+        image: crypto-wallet-app-backend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8085

@@ -33,6 +33,6 @@ deploy:
     - chmod 400 $HOME/.kube/config
     - sed -i "s|crypto-wallet-app-backend:latest|$DOCKER_USERNAME/crypto-wallet-app-backend:$CI_COMMIT_SHA|g" k8s/backend-deployment.yaml
     - sed -i "s|crypto-wallet-app-frontend:latest|$DOCKER_USERNAME/crypto-wallet-app-frontend:$CI_COMMIT_SHA|g" k8s/frontend-deployment.yaml
-    - kubectl apply -f k8s/
+    - /bin/sh -c "kubectl apply -f k8s/"
   only:
     - main
