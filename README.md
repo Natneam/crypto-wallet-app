@@ -14,6 +14,7 @@ This project consists of a React frontend and a Go backend for a crypto wallets 
 │   └── .env.example
 |   └── Dockerfile  # Dockerfile for building the backend
 |   └── *           # Go source files
+└── k8s/            # Kubernetes manifests
 └── docker-compose.yml
 ```
 
