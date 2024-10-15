@@ -85,4 +85,4 @@ The application is configured to be deployed on a Kubernetes cluster. The `k8s/`
 
 ## Configuration
 
-Adjust the environment variables in the `.env` files for both frontend and backend to configure the application. Refer to the `.env.example` files for the required variables. In case of kubernetes deployment, adjust the environment variables should be set in the gitlab CI/CD pipeline.
+Adjust the environment variables in the `.env` files for both frontend and backend to configure the application. Refer to the `.env.example` files for the required variables. In case of kubernetes deployment, the environment variables should be set in the gitlab CI/CD pipeline.
